@@ -1,0 +1,144 @@
+version: "3.8"
+
+# This configuration exposes services directly on localhost ports (no reverse proxy required).
+
+# You should use localhost:<service port> for all services connected to gluetun 
+# that are using the network_mode directive. For example, to connect Radarr to Transmission,
+# add Transmission under address `localhost:9091`.
+
+services:
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    # restart: unless-stopped
+    network_mode: "service:gluetun"
+    volumes:
+      - "${JELLYFIN_CONFIG_ROOT}:/config"
+      - "${JELLYFIN_CACHE_ROOT}:/cache"
+      - "${JELLYFIN_MEDIA_STORAGE_ROOT}:/media"
+    environment:
+      - JELLYFIN_PublishedServerUrl=${JELLYFIN_URL}  # Include protocol prefix (e.g. `https://)
+      - HEALTHCHECK_URL=http://localhost:8096/health
+
+  gluetun:
+    image: qmcgaw/gluetun:latest
+    # restart: always
+    environment:
+      - VPN_SERVICE_PROVIDER=custom
+      - VPN_TYPE=wireguard
+      - WIREGUARD_IMPLEMENTATION=userspace
+      - WIREGUARD_ADDRESSES=10.7.0.5/24
+      - WIREGUARD_PRIVATE_KEY=SK3Lw2IKaItTybSxtlKHs55/m5vpJPe9oPArX4J+TEc=
+      - WIREGUARD_DNS=212.227.123.16,212.227.123.17
+      - WIREGUARD_PUBLIC_KEY=L1SnWxqUoKvjLmKPMU4APFYNqIowQUln7iMeIUBCKkI=
+      - WIREGUARD_PRESHARED_KEY=AawSCtrB7o3CJV235dhHebJzZdaHVSUczxK0pB6OUFs=
+      - WIREGUARD_ENDPOINT_IP=212.132.110.140
+      - WIREGUARD_ENDPOINT_PORT=51820
+      - WIREGUARD_ALLOWED_IPS=0.0.0.0/0,::/0
+      - WIREGUARD_PERSISTENT_KEEPALIVE=25
+      - HEALTH_SUCCESS_WAIT_DURATION=99999h
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+    cap_add:
+      - NET_ADMIN
+    ports:
+      - "8096:8096" # jellyfin
+      - "5055:5055" # jellyseerr
+      - "9696:9696" # prowlarr
+      - "8989:8989" # sonarr
+      - "7878:7878" # radarr
+      - "8686:8686" # lidarr
+      - "8191:8191" # flaresolverr
+      - "9091:9091" # transmission web
+      - "51413:51413" # transmission peer
+      - "51413:51413/udp"
+
+  jellyseerr:
+    image: fallenbagel/jellyseerr:latest
+    # restart: always
+    network_mode: "service:gluetun"
+
+    depends_on:
+      - gluetun
+      - jellyfin
+      - sonarr
+      - radarr
+    environment:
+      - LOG_LEVEL=${LOG_LEVEL}
+      - TZ=${TZ}
+    volumes:
+      - "${JELLYSEERR_CONFIG_ROOT}:/app/config"
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    # restart: always
+    network_mode: "service:gluetun"
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TZ}
+      - SONARR__LOG_LEVEL=${SONARR_LOG_LEVEL}
+    volumes:
+      - "${PROWLARR_CONFIG_ROOT}:/config"
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    # restart: always
+    network_mode: "service:gluetun"
+    depends_on:
+      - prowlarr
+      - gluetun
+      - transmission
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TZ}
+    volumes:
+      - "${SONARR_CONFIG_ROOT}:/config"
+      - "${JELLYFIN_MEDIA_STORAGE_ROOT}/videos/shows:/shows"
+      - "${JELLYFIN_MEDIA_STORAGE_ROOT}/videos/anime:/anime"
+      - "${TRANSMISSION_DOWNLOADS_STORAGE_ROOT}:/downloads"
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    # restart: always
+    network_mode: "service:gluetun"
+    depends_on:
+      - prowlarr
+      - gluetun
+      - transmission
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TZ}
+    volumes:
+      - "${RADARR_CONFIG_ROOT}:/config"
+      - "${JELLYFIN_MEDIA_STORAGE_ROOT}/videos/movies:/movies"
+      - "${TRANSMISSION_DOWNLOADS_STORAGE_ROOT}:/downloads"
+
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    # restart: always
+    network_mode: "service:gluetun"
+    environment:
+      - LOG_LEVEL=info
+      - TZ=${TZ}
+
+  transmission:
+    image: lscr.io/linuxserver/transmission:latest
+    # restart: always
+    network_mode: "service:gluetun"
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=${TZ}
+      # - TRANSMISSION_WEB_HOME= #optional
+      # - USER= #optional
+      # - PASS= #optional
+      # - WHITELIST= #optional
+      # - PEERPORT= #optional
+      # - HOST_WHITELIST= #optional
+    volumes:
+      - "${TRANSMISSION_CONFIG_ROOT}:/config"
+      - "${TRANSMISSION_DOWNLOADS_STORAGE_ROOT}:/downloads"
+      # - "/path/to/watch/folder:/watch"
+    # ports:
+      # - 9091:9091
+      # - 51413:51413
+      # - 51413:51413/udp
