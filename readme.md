@@ -231,3 +231,13 @@ Prowlarr → Apps → Test Sonarr/Radarr
 Transmission → Is a torrent added?
 
 Sonarr/Radarr → Activity → Queue
+
+https://trash-guides.info/Radarr/radarr-setup-quality-profiles-french-fr/#formats-audio-avances-et-hdr
+https://trash-guides.info/Sonarr/sonarr-setup-quality-profiles-french-fr/
+
+docker exec seek-n-seed-recyclarr-1 recyclarr sync
+
+ourvir port       - "51413:51413" # transmission peer
+      - "51413:51413/udp"
+
+mettre preferred language a any dans les profiles recyclarr dans radarr

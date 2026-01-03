@@ -17,25 +17,27 @@ services:
       - "${JELLYFIN_MEDIA_STORAGE_ROOT}:/media"
     environment:
       - JELLYFIN_PublishedServerUrl=${JELLYFIN_URL}  # Include protocol prefix (e.g. `https://)
-      - HEALTHCHECK_URL=http://localhost:8096/health
+      - HEALTHCHECK_URL=${JELLYFIN_HEALTHCHECK_URL}
 
   gluetun:
     image: qmcgaw/gluetun:latest
     # restart: always
     environment:
-      - VPN_SERVICE_PROVIDER=custom
-      - VPN_TYPE=wireguard
-      - WIREGUARD_IMPLEMENTATION=userspace
-      - WIREGUARD_ADDRESSES=10.7.0.5/24
-      - WIREGUARD_PRIVATE_KEY=SK3Lw2IKaItTybSxtlKHs55/m5vpJPe9oPArX4J+TEc=
-      - WIREGUARD_DNS=212.227.123.16,212.227.123.17
-      - WIREGUARD_PUBLIC_KEY=L1SnWxqUoKvjLmKPMU4APFYNqIowQUln7iMeIUBCKkI=
-      - WIREGUARD_PRESHARED_KEY=AawSCtrB7o3CJV235dhHebJzZdaHVSUczxK0pB6OUFs=
-      - WIREGUARD_ENDPOINT_IP=212.132.110.140
-      - WIREGUARD_ENDPOINT_PORT=51820
-      - WIREGUARD_ALLOWED_IPS=0.0.0.0/0,::/0
-      - WIREGUARD_PERSISTENT_KEEPALIVE=25
-      - HEALTH_SUCCESS_WAIT_DURATION=99999h
+      - VPN_SERVICE_PROVIDER=${VPN_SERVICE_PROVIDER}
+      - VPN_TYPE=${VPN_TYPE}
+      - WIREGUARD_IMPLEMENTATION=${WIREGUARD_IMPLEMENTATION}
+      - WIREGUARD_ADDRESSES=${WIREGUARD_ADDRESSES}
+      - WIREGUARD_PRIVATE_KEY=${WIREGUARD_PRIVATE_KEY}
+      - WIREGUARD_DNS=${WIREGUARD_DNS}
+      - WIREGUARD_PUBLIC_KEY=${WIREGUARD_PUBLIC_KEY}
+      - WIREGUARD_PRESHARED_KEY=${WIREGUARD_PRESHARED_KEY}
+      - WIREGUARD_ENDPOINT_IP=${WIREGUARD_ENDPOINT_IP}
+      - WIREGUARD_ENDPOINT_PORT=${WIREGUARD_ENDPOINT_PORT}
+      - WIREGUARD_ALLOWED_IPS=${WIREGUARD_ALLOWED_IPS}
+      - WIREGUARD_PERSISTENT_KEEPALIVE=${WIREGUARD_PERSISTENT_KEEPALIVE}
+      - FIREWALL_VPN_INPUT_PORTS=${FIREWALL_VPN_INPUT_PORTS}
+      - FIREWALL_INPUT_PORTS=${FIREWALL_INPUT_PORTS}
+      - HEALTH_SUCCESS_WAIT_DURATION=${HEALTH_SUCCESS_WAIT_DURATION}
     volumes:
       - /etc/localtime:/etc/localtime:ro
     cap_add:
@@ -46,7 +48,6 @@ services:
       - "9696:9696" # prowlarr
       - "8989:8989" # sonarr
       - "7878:7878" # radarr
-      - "8686:8686" # lidarr
       - "8191:8191" # flaresolverr
       - "9091:9091" # transmission web
       - "51413:51413" # transmission peer
@@ -72,8 +73,8 @@ services:
     # restart: always
     network_mode: "service:gluetun"
     environment:
-      - PUID=1000
-      - PGID=1000
+      - PUID=${PUID}
+      - PGID=${PGID}
       - TZ=${TZ}
       - SONARR__LOG_LEVEL=${SONARR_LOG_LEVEL}
     volumes:
@@ -87,8 +88,8 @@ services:
       - gluetun
       - transmission
     environment:
-      - PUID=1000
-      - PGID=1000
+      - PUID=${PUID}
+      - PGID=${PGID}
       - TZ=${TZ}
     volumes:
       - "${SONARR_CONFIG_ROOT}:/config"
@@ -104,8 +105,8 @@ services:
       - gluetun
       - transmission
     environment:
-      - PUID=1000
-      - PGID=1000
+      - PUID=${PUID}
+      - PGID=${PGID}
       - TZ=${TZ}
     volumes:
       - "${RADARR_CONFIG_ROOT}:/config"
@@ -117,16 +118,25 @@ services:
     # restart: always
     network_mode: "service:gluetun"
     environment:
-      - LOG_LEVEL=info
+      - LOG_LEVEL=${LOG_LEVEL}
       - TZ=${TZ}
+
+  recyclarr:
+    image: ghcr.io/recyclarr/recyclarr
+    network_mode: "service:gluetun"
+    user: "${PUID}:${PGID}" # Use your UID:GID
+    volumes:
+      - ./data/recyclarr/config:/config
+    environment:
+      - TZ=${RECYCLARR_TZ}
 
   transmission:
     image: lscr.io/linuxserver/transmission:latest
     # restart: always
     network_mode: "service:gluetun"
     environment:
-      - PUID=1000
-      - PGID=1000
+      - PUID=${PUID}
+      - PGID=${PGID}
       - TZ=${TZ}
       # - TRANSMISSION_WEB_HOME= #optional
       # - USER= #optional
